@@ -1,8 +1,11 @@
 package com.github.irybov.sparkwebmock;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.Currency;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.http.HttpEntity;
@@ -20,12 +23,16 @@ import org.apache.http.util.EntityUtils;
 
 import com.github.irybov.sparkwebmock.dto.OperationRequest;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import static spark.Spark.*;
 
 public class WebMockApplication {
 
 	public static void main(String[] args) throws IOException {
+		
+		final Type MAP_TYPE = new TypeToken<LinkedHashMap<Integer, Double>>() {}.getType();
+//		final Type MAP_TYPE = TypeToken.getParameterized(LinkedHashMap.class, Integer.class, Double.class);
 		
 //		new MessageListener().start();
 
@@ -39,16 +46,13 @@ public class WebMockApplication {
                 int status = response.getStatusLine().getStatusCode();
                 if (status >= 200 && status < 400) {
                     HttpEntity entity = response.getEntity();
-                    System.out.println("Response status: " + status);
                     return entity != null ? EntityUtils.toString(entity) : null;
                 }
                 else {
-                	System.out.println("Response status: " + status);
                 	throw new ClientProtocolException("Response status: " + status);
                 }
             };
         	String response = httpClient.execute(request, responseHandler);
-        	System.out.println(response);
         }*/
         
 		Set<String> banks = new HashSet<>();
@@ -73,7 +77,7 @@ public class WebMockApplication {
         	
         	OperationRequest operation = gson.fromJson(request.body(), OperationRequest.class);
         	
-        	response.type("text/xml");
+        	response.type("text/plain");
         	if(banks.contains(operation.getBank())) {
         		if(operation.getRecipient() % 2 == 0) {
         			response.body("Data has been verified");
@@ -123,9 +127,20 @@ public class WebMockApplication {
             }
             
         });
+        
+        post("/display", (request, response) -> {
+            Map<Integer, Double> data = gson.fromJson(request.body(), MAP_TYPE);
+            if (data == null || data.isEmpty()) {
+                throw new HttpResponseException(400, "Data map cannot be empty");
+            }
+            response.status(204);
+            return "";
+        });
 		
         exception(HttpResponseException.class, (exception, request, response) -> {
-        	response.type("application/json");
+        	response.type("text/plain");
+        	response.status(exception.getStatusCode());
+        	response.body(exception.getMessage());
         });
         
 	}
